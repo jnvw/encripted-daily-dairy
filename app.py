@@ -13,7 +13,21 @@ from datetime import datetime
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'dev-secret-key-123'
 import os
+from flask_cors import CORS
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+CORS(app)
 
+allowed_origins = [
+    "https://dailydiary.up.railway.app",  # Your Production URL
+    "http://localhost:5000",              # Your Local Machine
+    "http://127.0.0.1:5000"               # Your Local Machine (IP)
+]
+
+# Enable CORS only for these origins
+CORS(app, resources={
+    r"/*": {"origins": allowed_origins}
+})
 # Get the database URL from the environment (Neon), or default to SQLite (Local)
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///dairy_diary.db')
 
