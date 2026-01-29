@@ -1,39 +1,372 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dairy Diary</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-</head>
-<body class="bg-light">
-    <div class="container mt-5">
-        <h2>Welcome to your Diary, {{ current_user.username }}</h2>
-        <hr>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #6c5ce7;
+            --secondary-color: #a29bfe;
+            --bg-color: #f0f3f8;
+            --text-color: #2d3436;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- Layout --- */
+        .main-container {
+            height: 100vh;
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            transition: transform 0.3s ease;
+        }
+
+        /* --- Calendar Section --- */
+        .calendar-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 400px;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            font-weight: 600;
+            font-size: 1.2rem;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            text-align: center;
+        }
+
+        .day-name {
+            font-size: 0.8rem;
+            color: #b2bec3;
+            margin-bottom: 10px;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            font-weight: 600;
+            background: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            position: relative;
+        }
+
+        .calendar-day:hover {
+            transform: scale(1.1);
+            z-index: 2;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .calendar-day.active {
+            background: var(--primary-color) !important;
+            color: white !important;
+            box-shadow: 0 5px 15px rgba(108, 92, 231, 0.4);
+        }
+
+        /* The user requested spec: Green if entry, Red if not */
+        .status-has-entry {
+            color: #00b894; /* Green */
+            border: 2px solid #00b894;
+        }
         
-        <div class="card p-4 mb-4">
-            <h4>New Entry</h4>
-            <form action="/add" method="post">
-                <div class="mb-3">
-                    <label>What did you eat?</label>
-                    <input type="text" name="food" class="form-control">
-                </div>
-                <div class="mb-3">
-                    <label>Daily Thoughts</label>
-                    <textarea name="content" class="form-control" rows="4"></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary">Save Entry</button>
-            </form>
+        .status-no-entry {
+            color: #ff7675; /* Red */
+        }
+
+        /* --- Editor Section --- */
+        .editor-section {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .editor-header {
+            margin-bottom: 20px;
+            border-bottom: 2px solid #dfe6e9;
+            padding-bottom: 10px;
+        }
+
+        .date-display {
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .form-control {
+            border: none;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+
+        .form-control:focus {
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.2);
+        }
+
+        textarea {
+            resize: none;
+            height: 100%;
+        }
+
+        .btn-save {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 30px;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-save:hover {
+            background: #5649c0;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(108, 92, 231, 0.3);
+        }
+
+        /* Loading Spinner Overlay */
+        #loader {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            border-radius: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        #loader.show { opacity: 1; pointer-events: all; }
+
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+    
+    <div class="calendar-section glass-panel">
+        <div class="calendar-header">
+            <button class="btn btn-sm btn-outline-primary" id="prevMonth">&lt;</button>
+            <span id="monthYearDisplay">January 2026</span>
+            <button class="btn btn-sm btn-outline-primary" id="nextMonth">&gt;</button>
+        </div>
+        
+        <div class="calendar-grid" id="calendarGrid">
+            </div>
+
+        <div class="mt-auto text-center p-3">
+            <small class="text-muted">Green = Written | Red = Empty</small>
+            <br>
+            <a href="/logout" class="btn btn-sm btn-danger mt-3">Logout</a>
+        </div>
+    </div>
+
+    <div class="editor-section glass-panel">
+        <div id="loader"><div class="spinner-border text-primary" role="status"></div></div>
+        
+        <div class="editor-header d-flex justify-content-between align-items-center">
+            <div class="date-display" id="selectedDateDisplay">Select a date</div>
+            <button class="btn-save" onclick="saveData()">Save Entry</button>
         </div>
 
-        <h4>Past Entries</h4>
-        {% for entry in entries %}
-        <div class="card mb-2">
-            <div class="card-body">
-                <h6 class="text-muted">{{ entry.date }}</h6>
-                <p><strong>Food:</strong> {{ entry.food }}</p>
-                <p>{{ entry.content }}</p>
-            </div>
-        </div>
-        {% endfor %}
+        <input type="text" id="foodInput" class="form-control" placeholder="What did you eat today? 🍔">
+        <textarea id="diaryInput" class="form-control" style="flex:1;" placeholder="Write your encrypted daily diary here..."></textarea>
     </div>
+
+</div>
+
+<script>
+    let currentDate = new Date();
+    let selectedDate = new Date(); // The date currently being edited
+    let entryDates = []; // List of dates that have entries from DB
+
+    const monthNames = ["January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ];
+
+    // --- Initialization ---
+    document.addEventListener('DOMContentLoaded', async () => {
+        await fetchEntryDates();
+        renderCalendar();
+        loadDateData(formatDate(new Date())); // Load today by default
+    });
+
+    // --- 1. Fetch Entry Dates (Green/Red Logic) ---
+    async function fetchEntryDates() {
+        try {
+            const response = await fetch('/api/dates');
+            entryDates = await response.json();
+            renderCalendar(); // Re-render to update colors
+        } catch (error) {
+            console.error('Error fetching dates:', error);
+        }
+    }
+
+    // --- 2. Render Calendar ---
+    function renderCalendar() {
+        const grid = document.getElementById('calendarGrid');
+        const monthYear = document.getElementById('monthYearDisplay');
+        grid.innerHTML = ''; // Clear previous
+
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+
+        monthYear.innerText = `${monthNames[month]} ${year}`;
+
+        // Days headers
+        const days = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+        days.forEach(day => {
+            const div = document.createElement('div');
+            div.className = 'day-name';
+            div.innerText = day;
+            grid.appendChild(div);
+        });
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        // Empty slots for previous month
+        for (let i = 0; i < firstDay; i++) {
+            grid.appendChild(document.createElement('div'));
+        }
+
+        // Days
+        for (let i = 1; i <= daysInMonth; i++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+            const div = document.createElement('div');
+            div.className = 'calendar-day';
+            div.innerText = i;
+
+            // --- Green / Red Logic ---
+            if (entryDates.includes(dateStr)) {
+                div.classList.add('status-has-entry');
+            } else {
+                div.classList.add('status-no-entry');
+            }
+
+            // Highlight currently selected date
+            if (dateStr === formatDate(selectedDate)) {
+                div.classList.add('active');
+            }
+
+            div.onclick = () => {
+                // Save current before switching? Optional, but good UX
+                saveData().then(() => {
+                    selectedDate = new Date(year, month, i);
+                    renderCalendar(); // Update selection UI
+                    loadDateData(dateStr);
+                });
+            };
+
+            grid.appendChild(div);
+        }
+    }
+
+    // --- 3. Load Data for a Day ---
+    async function loadDateData(dateStr) {
+        document.getElementById('loader').classList.add('show');
+        
+        // Update Header
+        const dateObj = new Date(dateStr);
+        document.getElementById('selectedDateDisplay').innerText = dateObj.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+        try {
+            const response = await fetch(`/api/get_entry/${dateStr}`);
+            const data = await response.json();
+            
+            document.getElementById('diaryInput').value = data.content || "";
+            document.getElementById('foodInput').value = data.food || "";
+            
+        } catch (error) {
+            console.error('Error loading entry:', error);
+        } finally {
+            document.getElementById('loader').classList.remove('show');
+        }
+    }
+
+    // --- 4. Save Data ---
+    async function saveData() {
+        const dateStr = formatDate(selectedDate);
+        const content = document.getElementById('diaryInput').value;
+        const food = document.getElementById('foodInput').value;
+
+        // If empty, don't bother saving (or maybe delete? keeping it simple for now)
+        if (!content && !food) return;
+
+        try {
+            await fetch('/save_entry', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date: dateStr, content: content, food: food })
+            });
+            
+            // Refresh the "Green/Red" status
+            if (!entryDates.includes(dateStr)) {
+                entryDates.push(dateStr);
+                renderCalendar();
+            }
+            
+        } catch (error) {
+            alert("Failed to save!");
+        }
+    }
+
+    // --- Helper ---
+    function formatDate(d) {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    // --- Navigation ---
+    document.getElementById('prevMonth').onclick = () => {
+        currentDate.setMonth(currentDate.getMonth() - 1);
+        renderCalendar();
+    };
+    document.getElementById('nextMonth').onclick = () => {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+        renderCalendar();
+    };
+
+</script>
+
 </body>
 </html>

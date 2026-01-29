@@ -1,0 +1,17 @@
+# Ignore the environment folder
+.venv/
+venv/
+env/
+
+# Ignore compiled python files
+__pycache__/
+*.py[cod]
+
+# Ignore secrets and DBs
+.env
+*.db
+*.sqlite3
+
+# Ignore IDE settings
+.vscode/
+.idea/
